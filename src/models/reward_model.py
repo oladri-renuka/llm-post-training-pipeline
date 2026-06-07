@@ -1,39 +1,51 @@
 """
-DistilBERT-based scalar reward model for Bradley-Terry preference learning.
+LLaMA-3.2-1B-based scalar reward model for Bradley-Terry preference learning.
 
-Architecture: DistilBERT encoder + linear projection to scalar reward.
-The scalar reward is used directly in the Bradley-Terry loss during training
-and as the PPO reward signal during Phase 3.
+Architecture: LLaMA-3.2-1B encoder + linear projection on last token hidden state.
+Using the same model family as the policy ensures the reward signal is coherent
+with the policy's representation space.
 """
 
 import logging
+import os
 
 import torch
 import torch.nn as nn
 from omegaconf import DictConfig
-from transformers import AutoModel, AutoTokenizer, PreTrainedTokenizerBase
+from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedTokenizerBase
 
 logger = logging.getLogger(__name__)
 
 
 class RewardModel(nn.Module):
     """
-    Scalar reward model built on a DistilBERT backbone.
+    Scalar reward model built on LLaMA-3.2-1B backbone.
 
-    The [CLS] token representation is projected to a single scalar.
-    No sigmoid — raw logits are used in Bradley-Terry loss to avoid
-    gradient saturation at the extremes.
+    The last token's hidden state is projected to a scalar reward.
+    Using the final token (causal LM style) rather than [CLS] because
+    LLaMA is a decoder-only model with no dedicated classification token.
     """
 
     def __init__(self, backbone_name: str, dropout: float = 0.1) -> None:
         super().__init__()
-        self.backbone = AutoModel.from_pretrained(backbone_name)
+        self.backbone = AutoModelForCausalLM.from_pretrained(
+            backbone_name,
+            torch_dtype=torch.bfloat16,
+            device_map=None,
+        )
+        # Freeze all backbone parameters except last transformer block
+        for name, param in self.backbone.named_parameters():
+            param.requires_grad = False
+
+        # Unfreeze last transformer block only
+        for name, param in self.backbone.named_parameters():
+            if "layers.15" in name:
+                param.requires_grad = True
+
         hidden_size = self.backbone.config.hidden_size
         self.dropout = nn.Dropout(dropout)
-        self.reward_head = nn.Linear(hidden_size, 1)
-
-        nn.init.normal_(self.reward_head.weight, std=0.02)
-        nn.init.zeros_(self.reward_head.bias)
+        self.reward_head = nn.Linear(hidden_size, 1, bias=False)
+        nn.init.normal_(self.reward_head.weight, std=0.01)
 
     def forward(
         self,
@@ -51,10 +63,18 @@ class RewardModel(nn.Module):
         outputs = self.backbone(
             input_ids=input_ids,
             attention_mask=attention_mask,
+            output_hidden_states=True,
         )
-        cls_repr = outputs.last_hidden_state[:, 0, :]
-        cls_repr = self.dropout(cls_repr)
-        rewards = self.reward_head(cls_repr).squeeze(-1)
+        # Use last token hidden state (causal LM convention)
+        last_hidden = outputs.hidden_states[-1]
+        # Get the last non-padding token for each sequence
+        seq_lengths = attention_mask.sum(dim=1) - 1
+        batch_size = input_ids.shape[0]
+        last_token_hidden = last_hidden[
+            torch.arange(batch_size, device=input_ids.device), seq_lengths
+        ]
+        last_token_hidden = self.dropout(last_token_hidden.float())
+        rewards = self.reward_head(last_token_hidden).squeeze(-1)
         return rewards
 
 
@@ -62,18 +82,7 @@ def bradley_terry_loss(
     chosen_rewards: torch.Tensor,
     rejected_rewards: torch.Tensor,
 ) -> torch.Tensor:
-    """
-    Bradley-Terry pairwise ranking loss.
-
-    Maximizes log P(chosen > rejected) = log sigmoid(r_chosen - r_rejected).
-
-    Args:
-        chosen_rewards: (batch_size,) rewards for preferred responses.
-        rejected_rewards: (batch_size,) rewards for dispreferred responses.
-
-    Returns:
-        Scalar loss.
-    """
+    """Bradley-Terry pairwise ranking loss."""
     return -torch.nn.functional.logsigmoid(
         chosen_rewards - rejected_rewards
     ).mean()
@@ -83,23 +92,13 @@ def compute_accuracy(
     chosen_rewards: torch.Tensor,
     rejected_rewards: torch.Tensor,
 ) -> float:
-    """Fraction of pairs where chosen reward exceeds rejected reward."""
     return (chosen_rewards > rejected_rewards).float().mean().item()
 
 
 def load_reward_model_and_tokenizer(
     cfg: DictConfig,
 ) -> tuple[RewardModel, PreTrainedTokenizerBase]:
-    """
-    Instantiate reward model and tokenizer from config.
-
-    Args:
-        cfg: Config with model fields.
-
-    Returns:
-        (reward_model, tokenizer) tuple.
-    """
-    logger.info("Initializing reward model: %s", cfg.model.backbone)
+    logger.info("Initializing LLaMA reward model: %s", cfg.model.backbone)
     model = RewardModel(
         backbone_name=cfg.model.backbone,
         dropout=cfg.model.dropout,
@@ -108,35 +107,23 @@ def load_reward_model_and_tokenizer(
     tokenizer = AutoTokenizer.from_pretrained(cfg.model.backbone, use_fast=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.pad_token_id = tokenizer.eos_token_id
+    tokenizer.padding_side = "right"
 
-    total_params = sum(p.numel() for p in model.parameters())
-    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    total = sum(p.numel() for p in model.parameters())
     logger.info(
-        "Reward model params — total: %s | trainable: %s",
-        f"{total_params:,}",
-        f"{trainable_params:,}",
+        "Reward model params — trainable: %s / %s (%.2f%%)",
+        f"{trainable:,}", f"{total:,}", 100 * trainable / total,
     )
-
     return model, tokenizer
 
 
 def load_reward_model_from_checkpoint(
     checkpoint_path: str,
-    backbone_name: str = "distilbert-base-uncased",
+    backbone_name: str = "meta-llama/Llama-3.2-1B-Instruct",
     dropout: float = 0.1,
 ) -> RewardModel:
-    """
-    Load a trained reward model from a saved state dict.
-
-    Args:
-        checkpoint_path: Path to directory containing reward_model.pt.
-        backbone_name: DistilBERT variant used during training.
-        dropout: Dropout value used during training.
-
-    Returns:
-        Reward model in eval mode.
-    """
-    import os
     model = RewardModel(backbone_name=backbone_name, dropout=dropout)
     state_dict_path = os.path.join(checkpoint_path, "reward_model.pt")
     state_dict = torch.load(state_dict_path, map_location="cpu", weights_only=True)
