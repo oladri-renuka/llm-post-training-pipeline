@@ -1,4 +1,4 @@
-.PHONY: install sft reward ppo eval all clean
+.PHONY: install sft reward ppo dpo eval all clean
 
 install:
 	pip install -r requirements.txt
@@ -12,13 +12,16 @@ reward:
 ppo:
 	python scripts/run_ppo.py
 
+dpo:
+	python scripts/run_dpo.py
+
 eval:
 	python scripts/run_eval.py
 
 all:
 	$(MAKE) sft
 	$(MAKE) reward
-	$(MAKE) ppo
+	$(MAKE) dpo
 	$(MAKE) eval
 
 clean:

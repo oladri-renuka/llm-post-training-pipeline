@@ -1,0 +1,43 @@
+model:
+  sft_checkpoint: "checkpoints/sft/final"
+  base_model: "meta-llama/Llama-3.2-1B-Instruct"
+  torch_dtype: "bfloat16"
+
+data:
+  dataset_name: "openbmb/UltraFeedback"
+  max_length: 512
+  max_prompt_length: 256
+  num_samples: 5000
+  num_proc: 4
+  train_val_split: 0.95
+
+dpo:
+  output_dir: "checkpoints/dpo"
+  beta: 0.1
+  num_train_epochs: 1
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 8
+  learning_rate: 5.0e-7
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  bf16: true
+  fp16: false
+  logging_steps: 10
+  save_steps: 100
+  save_total_limit: 2
+  eval_strategy: "steps"
+  eval_steps: 100
+  seed: 42
+  report_to: "wandb"
+  gradient_checkpointing: true
+  max_grad_norm: 1.0
+
+wandb:
+  project: "llm-post-training-pipeline"
+  entity: "renukareddy-oladri500"
+  run_name: "dpo-llama3.2-1b-ultrafeedback"
+  tags:
+    - "dpo"
+    - "preference_learning"
+    - "llama3.2"
