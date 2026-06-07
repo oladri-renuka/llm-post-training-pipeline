@@ -73,9 +73,9 @@
 
 | Task type | Base accuracy | DPO accuracy | Δ | p-value | Significant |
 |---|---|---|---|---|---|
-| Format-constrained (n=150) | 0.880 | 0.713 | −0.167 | 0.0003 |  Yes |
-| Factual (n=100) | 0.050 | 0.140 | +0.090 | 0.0300 |  Yes |
-| Code (n=50) | 0.380 | 0.220 | −0.160 | 0.0809 |  No |
+| Format-constrained (n=150) | 0.880 | 0.713 | −0.167 | 0.0003 | ✅ Yes |
+| Factual (n=100) | 0.050 | 0.140 | +0.090 | 0.0300 | ✅ Yes |
+| Code (n=50) | 0.380 | 0.220 | −0.160 | 0.0809 | ❌ No |
 
 **Stratum 2: Open-Ended Tasks** (directional only, GPT-4o-mini judge, n=300)
 
@@ -85,7 +85,7 @@
 | DPO fine-tuned | 14.0% |
 | Tie | 2.3% |
 
-> **Interpretation.** DPO significantly improved factual recall (+9pp, p=0.030) but significantly regressed format following (−16.7pp, p=0.0003). The format regression is explainable: UltraFeedback preference pairs reward helpfulness and factual quality, not structural formatting compliance. The open-ended results reflect GPT-4o-mini's known preference for responses stylistically similar to OpenAI training data — this is documented as a bias caveat and not used for significance claims.
+> **Interpretation.** DPO significantly improved factual recall (+9pp, p=0.030) but significantly regressed format following (−16.7pp, p=0.0003). The format regression is explainable: UltraFeedback preference pairs reward helpfulness and factual quality, not structural formatting compliance. The open-ended results reflect GPT-4o-mini's known preference for responses stylistically similar to OpenAI training data — this is documented as a bias caveat and not used for significance claims. A task-stratified DPO approach — using format-compliance preference pairs for structured output tasks and UltraFeedback pairs for factual tasks — would likely preserve format accuracy while maintaining the factual improvement.
 
 ---
 
@@ -98,7 +98,7 @@ Validated on RunPod A40 (48GB VRAM):
 | torch | 2.8.0+cu128 |
 | transformers | 4.47.0 |
 | peft | 0.12.0 |
-| trl | 0.13.0 |
+| trl | 0.10.1 (PPO) → 0.13.0 (DPO) |
 | accelerate | 0.34.2 |
 | CUDA | 12.8 |
 
@@ -192,9 +192,9 @@ All runs tracked in W&B under [`llm-post-training-pipeline`](https://wandb.ai/re
 
 ## Known Limitations
 
-**Reward model capacity.** The reward model uses LLaMA-3.2-1B with only the final transformer block unfrozen (60M trainable parameters). A production setup would fine-tune the full reward model or use a larger backbone.
+**Reward model capacity.** The reward model uses LLaMA-3.2-1B with all backbone parameters frozen except the final transformer block (`layers.15`) and the scalar reward head — 60,823,552 trainable out of 1.24B total (4.92%). This is a parameter-efficient tradeoff: the final block learns task-specific representations while earlier layers retain pretrained language understanding. A production setup would fine-tune the full model or use a purpose-built reward backbone.
 
-**DPO over PPO.** PPO training was implemented and debugged but ultimately replaced with DPO due to a TRL 0.10.1 incompatibility with LLaMA's KV cache format that caused negative KL divergence. The PPO code is preserved in `src/training/ppo_trainer.py` and `src/models/ppo_model.py` for reference. The diagnostic process — identifying the root cause as TRL's `batched_forward_pass` log probability computation — is documented across W&B runs.
+**DPO over PPO.** PPO was implemented and debugged across 8 runs on TRL 0.10.1. The KL divergence computation produced negative values consistently — a confirmed incompatibility between TRL 0.10.1's `batched_forward_pass` log probability implementation and LLaMA's rotary attention KV cache format. TRL was upgraded to 0.13.0 for DPO training, which does not require KL computation. The PPO code is preserved in `src/training/ppo_trainer.py` and `src/models/ppo_model.py`. The full diagnostic process is documented across W&B runs.
 
 **Format regression.** DPO training on UltraFeedback caused a statistically significant regression in format-constrained task accuracy (−16.7pp, p=0.0003). This is expected: UltraFeedback rewards helpfulness and factual quality, not structural compliance. A production fix would curate preference pairs that reward formatting explicitly.
 
