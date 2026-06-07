@@ -41,10 +41,10 @@ def main() -> None:
 
     reward_model = load_reward_model_from_checkpoint(
         checkpoint_path=cfg.reward.checkpoint,
-        backbone_name="distilbert-base-uncased",
+        backbone_name="meta-llama/Llama-3.2-1B-Instruct",
     )
     reward_tokenizer = AutoTokenizer.from_pretrained(
-        "distilbert-base-uncased", use_fast=True
+        "meta-llama/Llama-3.2-1B-Instruct", use_fast=True
     )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
