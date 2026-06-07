@@ -15,7 +15,7 @@ import torch
 import torch.nn as nn
 from omegaconf import DictConfig
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import get_linear_schedule_with_warmup
+from transformers import get_linear_schedule_with_warmup
 from torch.utils.data import DataLoader
 from transformers import PreTrainedTokenizerBase
 

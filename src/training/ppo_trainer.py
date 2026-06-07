@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 def build_ppo_config(cfg: DictConfig) -> PPOConfig:
     """Construct TRL PPOConfig from the YAML config."""
     return PPOConfig(
-        model_name=cfg.model.sft_checkpoint,
+        
         learning_rate=cfg.ppo.learning_rate,
         batch_size=cfg.ppo.batch_size,
         mini_batch_size=cfg.ppo.mini_batch_size,
@@ -36,7 +36,7 @@ def build_ppo_config(cfg: DictConfig) -> PPOConfig:
         adap_kl_ctrl=cfg.ppo.adap_kl_ctrl,
         init_kl_coef=cfg.ppo.init_kl_coef,
         kl_penalty=cfg.ppo.kl_penalty,
-        target=cfg.ppo.target_kl,
+        target_kl=cfg.ppo.target_kl,
         gamma=cfg.ppo.gamma,
         lam=cfg.ppo.lam,
         cliprange=cfg.ppo.cliprange,
@@ -132,7 +132,12 @@ def run_ppo_training(
 
     for step in range(cfg.ppo.num_steps):
         start_idx = (step * batch_size) % n_prompts
-        batch_prompts = prompts[start_idx: start_idx + batch_size]
+        end_idx = start_idx + batch_size
+        if end_idx <= n_prompts:
+            batch_prompts = prompts[start_idx:end_idx]
+        else:
+            # wrap around to always get exactly batch_size prompts
+            batch_prompts = (prompts[start_idx:] + prompts[:end_idx - n_prompts])[:batch_size]
 
         query_tensors = [
             ppo_trainer.tokenizer.encode(p, return_tensors="pt").squeeze(0)
