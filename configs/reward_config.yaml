@@ -1,5 +1,5 @@
 model:
-  backbone: "distilbert-base-uncased"
+  backbone: "meta-llama/Llama-3.2-1B-Instruct"
   dropout: 0.1
 
 data:
@@ -12,8 +12,8 @@ data:
 training:
   output_dir: "checkpoints/reward"
   num_train_epochs: 3
-  per_device_train_batch_size: 16
-  gradient_accumulation_steps: 2
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 4
   learning_rate: 2.0e-5
   lr_scheduler_type: "linear"
   warmup_ratio: 0.06
@@ -35,6 +35,9 @@ wandb:
   entity: "renukareddy-oladri500"
   run_name: "reward-distilbert-ultrafeedback"
   tags:
+    - "reward_model"
+    - "bradley_terry"
+    - "distilbert"  tags:
     - "reward_model"
     - "bradley_terry"
     - "distilbert"
