@@ -26,6 +26,7 @@ This project implements a complete post-training pipeline for LLaMA-3.2-1B-Instr
 **Direct preference optimization (DPO)** uses preference pairs to fine-tune the policy directly, without a separate RL loop. It is mathematically equivalent to PPO-based RLHF but more stable and increasingly preferred in practice. PPO was implemented first and debugged across 8 runs — the KL divergence instability that caused the pivot to DPO is documented as a concrete engineering finding.
 
 **The evaluation problem** is that most fine-tuning projects report a single aggregate accuracy number. This conflates tasks where the model improved with tasks where it regressed. This project uses stratified evaluation — separating verifiable tasks (format, factual, code) from open-ended tasks — and applies a two-proportion z-test to distinguish statistically significant changes from noise. The result is a defensible claim: DPO improved factual accuracy by 9 percentage points (p=0.030) while significantly degrading format compliance (p=0.0003), a tradeoff directly attributable to the composition of the preference dataset.
+
 ---
 ## Pipeline Architecture
 
