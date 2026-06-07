@@ -1,6 +1,6 @@
 models:
   baseline: "meta-llama/Llama-3.2-1B-Instruct"
-  treatment: "checkpoints/ppo/final"
+  treatment: "checkpoints/dpo/final"
   torch_dtype: "bfloat16"
 
 data:

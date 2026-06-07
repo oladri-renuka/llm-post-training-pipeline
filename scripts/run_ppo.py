@@ -46,6 +46,9 @@ def main() -> None:
     reward_tokenizer = AutoTokenizer.from_pretrained(
         "meta-llama/Llama-3.2-1B-Instruct", use_fast=True
     )
+    if reward_tokenizer.pad_token is None:
+        reward_tokenizer.pad_token = reward_tokenizer.eos_token
+        reward_tokenizer.pad_token_id = reward_tokenizer.eos_token_id
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     reward_model = reward_model.to(device)

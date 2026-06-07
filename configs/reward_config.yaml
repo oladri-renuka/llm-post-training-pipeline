@@ -15,7 +15,7 @@ training:
   per_device_train_batch_size: 4
   gradient_accumulation_steps: 4
   learning_rate: 2.0e-5
-  lr_scheduler_type: "linear"
+  lr_scheduler_type: linear
   warmup_ratio: 0.06
   weight_decay: 0.01
   fp16: false
@@ -23,21 +23,18 @@ training:
   logging_steps: 10
   save_steps: 100
   save_total_limit: 2
-  eval_strategy: "steps"
+  eval_strategy: steps
   eval_steps: 100
   load_best_model_at_end: true
-  metric_for_best_model: "eval_accuracy"
+  metric_for_best_model: eval_accuracy
   seed: 42
-  report_to: "wandb"
+  report_to: wandb
 
 wandb:
   project: "llm-post-training-pipeline"
   entity: "renukareddy-oladri500"
-  run_name: "reward-distilbert-ultrafeedback"
+  run_name: "reward-llama3.2-1b-ultrafeedback"
   tags:
     - "reward_model"
     - "bradley_terry"
-    - "distilbert"  tags:
-    - "reward_model"
-    - "bradley_terry"
-    - "distilbert"
+    - "llama3.2"

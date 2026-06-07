@@ -115,6 +115,8 @@ def main() -> None:
     peft_model = PeftModel.from_pretrained(base_model, cfg.model.sft_checkpoint)
     model = peft_model.merge_and_unload()
     model.config.use_cache = False
+    for param in model.parameters():
+        param.requires_grad = True
 
     tokenizer = AutoTokenizer.from_pretrained(cfg.model.base_model, use_fast=True)
     if tokenizer.pad_token is None:

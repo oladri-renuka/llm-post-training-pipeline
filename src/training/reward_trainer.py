@@ -100,7 +100,7 @@ def train_reward_model(
         num_training_steps=total_steps,
     )
 
-    scaler = torch.cuda.amp.GradScaler() if device.type == "cuda" else None
+    scaler = None  # bfloat16 does not need GradScaler
 
     best_val_accuracy = 0.0
     best_state_dict = None
@@ -120,23 +120,13 @@ def train_reward_model(
 
             optimizer.zero_grad()
 
-            if scaler is not None:
-                with torch.cuda.amp.autocast():
-                    chosen_rewards = model(chosen_ids, chosen_mask)
-                    rejected_rewards = model(rejected_ids, rejected_mask)
-                    loss = bradley_terry_loss(chosen_rewards, rejected_rewards)
-                scaler.scale(loss).backward()
-                scaler.unscale_(optimizer)
-                nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-                scaler.step(optimizer)
-                scaler.update()
-            else:
+            with torch.amp.autocast("cuda", dtype=torch.bfloat16):
                 chosen_rewards = model(chosen_ids, chosen_mask)
                 rejected_rewards = model(rejected_ids, rejected_mask)
                 loss = bradley_terry_loss(chosen_rewards, rejected_rewards)
-                loss.backward()
-                nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-                optimizer.step()
+            loss.backward()
+            nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
 
             scheduler.step()
             epoch_loss += loss.item()

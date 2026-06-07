@@ -36,7 +36,7 @@ def build_ppo_config(cfg: DictConfig) -> PPOConfig:
         adap_kl_ctrl=cfg.ppo.adap_kl_ctrl,
         init_kl_coef=cfg.ppo.init_kl_coef,
         kl_penalty=cfg.ppo.kl_penalty,
-        target_kl=cfg.ppo.target_kl,
+        target=cfg.ppo.target_kl,
         gamma=cfg.ppo.gamma,
         lam=cfg.ppo.lam,
         cliprange=cfg.ppo.cliprange,
@@ -118,8 +118,9 @@ def run_ppo_training(
 
     generation_kwargs = {
         "min_length": -1,
-        "top_k": 0,
-        "top_p": 1.0,
+        "top_k": 50,
+        "top_p": 0.9,
+        "temperature": 0.7,
         "do_sample": True,
         "pad_token_id": ppo_trainer.tokenizer.pad_token_id,
         "max_new_tokens": 128,

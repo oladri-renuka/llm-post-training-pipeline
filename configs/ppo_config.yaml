@@ -12,11 +12,11 @@ ppo:
   batch_size: 16
   mini_batch_size: 4
   gradient_accumulation_steps: 1
-  learning_rate: 1.4e-5
+  learning_rate: 5.0e-6
   adap_kl_ctrl: true
-  init_kl_coef: 0.2
+  init_kl_coef: 0.05
   kl_penalty: "kl"
-  target_kl: 6.0
+  target_kl: 2.0
   gamma: 1.0
   lam: 0.95
   cliprange: 0.2

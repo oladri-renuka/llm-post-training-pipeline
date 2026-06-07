@@ -194,7 +194,10 @@ def run_ab_evaluation(
             f"eval/{stratum.value}/significant": int(result.significant),
         })
 
-    openai_client = OpenAI()
+    openai_client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=os.environ["OPENROUTER_API_KEY"],
+    )
     judge_model = cfg.strata.open_ended.judge_model
     baseline_wins, treatment_wins, ties = 0, 0, 0
 
