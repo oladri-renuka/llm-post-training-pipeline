@@ -1,0 +1,49 @@
+models:
+  baseline: "meta-llama/Llama-3.2-1B-Instruct"
+  treatment: "checkpoints/ppo/final"
+  torch_dtype: "bfloat16"
+
+data:
+  eval_dataset: "tatsu-lab/alpaca"
+  total_examples: 600
+  seed: 42
+
+strata:
+  verifiable:
+    n: 300
+    subcategories:
+      format_constrained:
+        n: 150
+        description: "Tasks with explicit format requirements (JSON, bullet points, numbered lists)"
+      factual:
+        n: 100
+        description: "Closed-domain factual recall with binary correct/incorrect"
+      code:
+        n: 50
+        description: "Code generation with functional correctness check"
+
+  open_ended:
+    n: 300
+    judge_model: "gpt-4o-mini"
+    description: "Subjective quality judged by LLM-as-judge. Directional signal only."
+    bias_caveats:
+      - "GPT-4o-mini may favor outputs stylistically similar to OpenAI training data"
+      - "Judge model shares no training lineage with either evaluated model"
+      - "Results not used for significance claims"
+
+statistics:
+  alpha: 0.05
+  test: "two_proportion_z_test"
+  min_detectable_effect: 0.05
+  power: 0.80
+
+output_dir: "results/eval"
+
+wandb:
+  project: "llm-post-training-pipeline"
+  entity: "renukareddy-oladri500"
+  run_name: "ab-eval-stratified"
+  tags:
+    - "evaluation"
+    - "ab_test"
+    - "stratified"

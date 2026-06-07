@@ -1,0 +1,42 @@
+model:
+  sft_checkpoint: "checkpoints/sft/final"
+  torch_dtype: "bfloat16"
+
+reward:
+  checkpoint: "checkpoints/reward/final"
+  max_length: 512
+
+ppo:
+  output_dir: "checkpoints/ppo"
+  num_steps: 300
+  batch_size: 16
+  mini_batch_size: 4
+  gradient_accumulation_steps: 1
+  learning_rate: 1.4e-5
+  adap_kl_ctrl: true
+  init_kl_coef: 0.2
+  kl_penalty: "kl"
+  target_kl: 6.0
+  gamma: 1.0
+  lam: 0.95
+  cliprange: 0.2
+  cliprange_value: 0.2
+  vf_coef: 0.1
+  max_grad_norm: 0.5
+  seed: 42
+  log_with: "wandb"
+
+data:
+  prompt_dataset: "tatsu-lab/alpaca"
+  max_prompt_length: 256
+  num_prompts: 1000
+  num_proc: 4
+
+wandb:
+  project: "llm-post-training-pipeline"
+  entity: "renukareddy-oladri500"
+  run_name: "ppo-llama3.2-1b"
+  tags:
+    - "ppo"
+    - "rlhf"
+    - "llama3.2"

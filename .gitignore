@@ -1,0 +1,11 @@
+checkpoints/
+results/
+wandb/
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.pt
+*.bin
+*.safetensors
+.DS_Store
